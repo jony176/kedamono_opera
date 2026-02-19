@@ -3,138 +3,384 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ケダモノオペラ：キャラシ作成（ココフォリア出力）</title>
+  <title>ケダモノオペラ：キャラメモ生成（ココフォリア貼り付け用）</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 24px; line-height: 1.5; }
-    .grid { display: grid; gap: 12px; max-width: 900px; }
-    label { font-weight: 600; }
-    input, textarea, button { font: inherit; padding: 10px; width: 100%; box-sizing: border-box; }
-    textarea { min-height: 140px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    pre { background:#f6f6f6; padding:12px; overflow:auto; }
-    .btns { display:flex; gap:12px; flex-wrap:wrap; }
-    button { width:auto; cursor:pointer; }
-    .hint { color:#555; font-size: 0.95em; }
+    :root { --gap: 12px; }
+    body { font-family: system-ui, sans-serif; margin: 24px; line-height: 1.55; }
+    h1 { margin: 0 0 6px; }
+    .hint { color:#555; margin: 0 0 18px; }
+    .wrap { max-width: 980px; display: grid; gap: 16px; }
+    .card { border: 1px solid #e6e6e6; border-radius: 12px; padding: 14px; background: #fff; }
+    .grid { display: grid; gap: var(--gap); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+    @media (max-width: 820px) { .row2 { grid-template-columns: 1fr; } }
+    label { font-weight: 650; display: inline-block; margin-bottom: 6px; }
+    input, textarea, select, button { font: inherit; padding: 10px; width: 100%; box-sizing: border-box; }
+    textarea { min-height: 120px; resize: vertical; }
+    button { width: auto; cursor: pointer; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btnPrimary { padding: 10px 14px; }
+    .btnGhost { background: #fff; border: 1px solid #ddd; }
+    .ok { color: #1a7f37; font-weight: 650; }
+    .warn { color: #a33; font-weight: 650; }
+    pre { background:#f6f6f6; padding:12px; overflow:auto; border-radius: 10px; }
+    details { border: 1px dashed #ddd; border-radius: 10px; padding: 10px 12px; background: #fafafa; }
+    summary { cursor: pointer; font-weight: 650; }
+    .small { color:#666; font-size: 0.95em; }
+    .pillRow { display:flex; gap: 8px; flex-wrap: wrap; }
+    .pill { border:1px solid #ddd; border-radius: 999px; padding: 6px 10px; cursor:pointer; background:#fff; }
+    .pill[aria-pressed="true"] { border-color:#333; font-weight:650; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
 </head>
 <body>
-  <h1>ケダモノオペラ：キャラシ作成</h1>
-  <p class="hint">固定：種族・技・性質（仮）／背景：フリーテキスト1枠／ダイス：1d10（高いほど良い）</p>
-
-  <div class="grid">
-    <div class="row">
-      <div>
-        <label>キャラ名</label>
-        <input id="name" placeholder="例：長尾直樹" />
-      </div>
-      <div>
-        <label>ダイス</label>
-        <input id="dice" value="1d10" />
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label>種族</label>
-        <input id="race" placeholder="例：人間 / 獣人 / etc" />
-      </div>
-      <div>
-        <label>技</label>
-        <input id="skill" placeholder="例：影縫い" />
-      </div>
-    </div>
-
+  <div class="wrap">
     <div>
-      <label>性質（仮）</label>
-      <input id="nature" placeholder="例：冷静 / 獰猛 / etc" />
+      <h1>ケダモノオペラ：キャラメモ生成</h1>
+      <p class="hint">入力 → ワンクリックで <span class="mono">ココフォリアのキャラメモ欄</span> に貼れるテキストをコピーします。</p>
     </div>
 
-    <div>
-      <label>背景設定（フリーテキスト）</label>
-      <textarea id="bg" placeholder="ここに背景、関係性、持ち物、口調、NGなど自由に…"></textarea>
+    <div class="card grid">
+      <div class="row2">
+        <div>
+          <label>名前（自由記述）</label>
+          <input id="name" placeholder="例：シチロベエ" autocomplete="off" />
+        </div>
+        <div>
+          <label>権能（プルダウン）</label>
+          <select id="gonou">
+            <option value="">選択してください</option>
+            <option>暴虐</option>
+            <option>狡猾</option>
+            <option>慈愛</option>
+            <option>叡智</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label>ケダモノ種（プルダウン）</label>
+          <select id="species">
+            <option value="">選択してください</option>
+            <option>アラクネ</option>
+            <option>エンギウサギ</option>
+            <option>ゴリアテ</option>
+            <option>スフィンクス</option>
+            <option>ドラゴン</option>
+            <option>マンドラバラ</option>
+            <option>ミミルズク</option>
+            <option>メルカバ</option>
+            <option>ヤミオオカミ</option>
+            <option>ラハブ</option>
+          </select>
+        </div>
+
+        <div>
+          <label>群れタイプ（プルダウン）</label>
+          <select id="mureType">
+            <option value="">（ソロなら空でOK）</option>
+            <option>遺志の群れ：もういないだれかで結びつく</option>
+            <option>監視の群れ：監視するものとされるもの</option>
+            <option>兄弟の群れ：兄弟姉妹として共にいる</option>
+            <option>腐れ縁の群れ：立場を変え、幾度も出会う</option>
+            <option>好敵手の群れ：互いに競い合う</option>
+            <option>主従の群れ：上下関係</option>
+            <option>神話の群れ：同じ神話で共演した</option>
+            <option>旅の群れ：共に世界を旅した</option>
+            <option>庇護の群れ：守るものと守られるもの</option>
+            <option>水場の群れ：水場を共にする隣人</option>
+            <option>盟約の群れ：相互扶助の盟約</option>
+            <option>友愛の群れ：友情や愛情の絆</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid">
+        <label>群れ（自由記述）</label>
+        <textarea id="mureFree" placeholder="複数PL時の関係性メモ。ソロなら空でOK。"></textarea>
+      </div>
     </div>
 
-    <div class="btns">
-      <button id="btnPreview">プレビュー更新</button>
-      <button id="btnDownload">ココフォリアJSONをDL</button>
-      <button id="btnCopy">コピペ用テキストをコピー</button>
+    <div class="card grid">
+      <div class="row2">
+        <div class="grid">
+          <label>伝説（自由記述）</label>
+          <textarea id="legendFree" placeholder="伝説表から選ぶ or 自由創作。"></textarea>
+
+          <details>
+            <summary>伝説表を見る（クリックで展開）</summary>
+            <div class="small">
+              <p>クリックで本文にコピーしたい人向け：下のボタンで「伝説」欄に追記できます。</p>
+              <div class="pillRow" id="legendPills"></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="grid">
+          <label>欲望（自由記述）</label>
+          <textarea id="desireFree" placeholder="欲望表から任意数選ぶ or 自由創作。"></textarea>
+
+          <details>
+            <summary>欲望表を見る（クリックで展開）</summary>
+            <div class="small">
+              <p>複数選ぶ前提。下のボタンで「欲望」欄に追記できます。</p>
+              <div class="pillRow" id="desirePills"></div>
+            </div>
+          </details>
+        </div>
+      </div>
     </div>
 
-    <h2>プレビュー（JSON）</h2>
-    <pre id="out"></pre>
+    <div class="card grid">
+      <div class="row2">
+        <div class="grid">
+          <label>住処（自由記述）</label>
+          <textarea id="lairFree" placeholder="住処表から選ぶ or 自由創作。"></textarea>
+
+          <details>
+            <summary>住処表を見る（クリックで展開）</summary>
+            <div class="small">
+              <p>下のボタンで「住処」欄に追記できます。</p>
+              <div class="pillRow" id="lairPills"></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="grid">
+          <label>備考（任意）</label>
+          <textarea id="notes" placeholder="口調／NG／依頼者への態度／シーンでの注意など"></textarea>
+          <p class="small">※ここは完全自由。不要なら空でOK。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card grid">
+      <div class="btns">
+        <button class="btnPrimary" id="btnCopy">📋 メモ用テキストをコピー</button>
+        <button class="btnGhost" id="btnPreview">プレビュー更新</button>
+        <button class="btnGhost" id="btnClear">入力をクリア</button>
+        <span id="statusMsg" class="small"></span>
+      </div>
+
+      <details>
+        <summary>ココフォリア貼り付け手順</summary>
+        <ol class="small">
+          <li>部屋でキャラクター（駒）を新規作成（空でOK）</li>
+          <li>キャラ編集を開く</li>
+          <li>「メモ」欄に、このページの「📋コピー」した文章を貼り付け</li>
+        </ol>
+      </details>
+
+      <h2 style="margin: 0;">プレビュー（このままメモ欄に貼れる）</h2>
+      <pre id="out"></pre>
+    </div>
   </div>
 
 <script>
   const $ = (id) => document.getElementById(id);
 
-  function buildCocofoliaCharacter() {
-    const name = $("name").value.trim() || "名無し";
-    const dice = $("dice").value.trim() || "1d10";
-    const race = $("race").value.trim();
-    const skill = $("skill").value.trim();
-    const nature = $("nature").value.trim();
-    const bg = $("bg").value.trim();
+  const LEGENDS = [
+    "【永劫の別れ】あなたは大切なモノと離ればなれになりました。",
+    "【千年の孤独】あなたは永いときをずっと一人ぼっちで過ごしてきました。",
+    "【失楽園】あなたは昔、幸福な生活をおくっていました。今もそれを懐かしんでいます。",
+    "【獣の本能】あなたはケダモノとして本能のままに生きてきました。",
+    "【未来の約束】あなたは遠い日に約束をしました。今も、忘れていません。",
+    "【大いなる厄災】あなたはとある国で、おぞましい災害として名を残しました。",
+    "【群れなすもの】あなたはあなたの一族とともに生きてきました。",
+    "【守護者】あなたはとある国で、守護神として崇められていました。",
+    "【終わりなき使命】あなたはなんらかの使命をおっています。そのために永遠を生きています。",
+    "【育むもの】あなたは人の子を拾って、育てたことがあります。",
+    "【人に憧れた獣】あなたは人というものに興味を抱き、憧れています。",
+    "【なれの果て】あなたは動物、人、物品として誕生しましたが、ケダモノとなりました。"
+  ];
 
-    // "最低限困らない"方針：メモに全部集約 + paramsで見やすく
-    const memoLines = [
-      `【システム】ケダモノオペラ`,
-      `【ダイス】${dice}（高いほど良い）`,
-      race ? `【種族】${race}` : null,
-      skill ? `【技】${skill}` : null,
-      nature ? `【性質】${nature}` : null,
-      ``,
-      bg ? `【背景】\n${bg}` : `【背景】（未入力）`,
-    ].filter(Boolean);
+  const DESIRES = [
+    "【義侠】どうしても、自分を頼みとする弱きものをむげにできない。",
+    "【強者】己が強さの証明のため、あるいは侮られないため、困難に身を投じる。",
+    "【支配】依頼者を子分や信者とみなし、その庇護を約束する。",
+    "【霊魂】依頼者もしくは近親者、子孫の命を対価として求める。",
+    "【契約】太古交わしたなんらかの契約に縛られており、人間の頼みを断れない。",
+    "【報酬】金銀財宝の供与、神殿の建設など、物理的な見返りを求める。",
+    "【鑑賞】人々の悲劇や激しい感情を間近で堪能するために頼みをきく。",
+    "【信義】己の考える道徳や信念を実現するために弱者の頼みをきく。",
+    "【探求】ある真理、宝物、秘密を追い求めており、その手がかりとなりそうな依頼を引き受ける。",
+    "【奉仕】誰かに尽くすことを喜びとしており、頼りにされるのを待っている。",
+    "【審美】清らかな乙女、麗しき美少年など特定の条件を備えるモノの願いを聞く。",
+    "【好奇】退屈に飽き、好奇心を満たすため、物事に関わろうとする。"
+  ];
 
-    // Cocofolia importでよく扱われる「character」形に寄せる
-    // ※部屋の取り込み仕様差分が出ても、name/memo/params があれば実用になることが多い
+  const LAIRS = [
+    "荘厳な大神殿","魔法の庭園","巨大キノコ","ストーンサークル","小島","巨大な貝殻","魔法の泉","巨大な葉の上","廃図書館","巨木のうろ",
+    "サンゴ礁","難破船","列車と駅舎","高山の頂上","円形闘技場","古代の学舎","ケダモノの墓場","ピラミッド","朽ち果てた時計台","樹上都市の廃墟",
+    "滅びた国の王宮","鍾乳洞の中の家","くりぬかれた巨大果実","火山の噴火口","うずたかい岩場","古戦場跡","花咲く丘","鶏の足が生えた家","滝壺","地下王国の廃墟",
+    "地下迷宮","巨大な鳥かご","頭蓋骨の形をした洞窟","天まで届く塔","浮遊する岩場","眠り続ける巨大ケダモノの背中"
+  ];
+
+  function readForm() {
     return {
-      kind: "character",
-      data: {
-        name,
-        memo: memoLines.join("\n"),
-        // statusは必要になったら追加でOK（例：HPなど）
-        status: [],
-        params: [
-          race ? { label: "種族", value: race } : null,
-          skill ? { label: "技", value: skill } : null,
-          nature ? { label: "性質", value: nature } : null,
-          { label: "ダイス", value: dice }
-        ].filter(Boolean),
-      }
+      name: $("name").value.trim(),
+      species: $("species").value,
+      gonou: $("gonou").value,
+      legendFree: $("legendFree").value.trim(),
+      desireFree: $("desireFree").value.trim(),
+      lairFree: $("lairFree").value.trim(),
+      mureType: $("mureType").value,
+      mureFree: $("mureFree").value.trim(),
+      notes: $("notes").value.trim()
     };
   }
 
+  function buildMemoText(f) {
+    const lines = [];
+    lines.push("【システム】ケダモノオペラ");
+
+    // 重要3点は上に固定表示
+    lines.push(`【名前】${f.name || "（未入力）"}`);
+    lines.push(`【ケダモノ種】${f.species || "（未選択）"}`);
+    lines.push(`【権能】${f.gonou || "（未選択）"}`);
+
+    lines.push(""); // blank
+
+    lines.push("【伝説】");
+    lines.push(f.legendFree ? f.legendFree : "（未入力）");
+    lines.push("");
+
+    lines.push("【欲望】");
+    lines.push(f.desireFree ? f.desireFree : "（未入力）");
+    lines.push("");
+
+    lines.push("【住処】");
+    lines.push(f.lairFree ? f.lairFree : "（未入力）");
+    lines.push("");
+
+    if (f.mureType || f.mureFree) {
+      lines.push("【群れ】");
+      if (f.mureType) lines.push(`タイプ：${f.mureType}`);
+      if (f.mureFree) lines.push(f.mureFree);
+      lines.push("");
+    }
+
+    if (f.notes) {
+      lines.push("【備考】");
+      lines.push(f.notes);
+      lines.push("");
+    }
+
+    // 末尾にダイスルール（プレイヤーの迷い防止）
+    lines.push("【判定】1d10（高いほど良い）");
+
+    return lines.join("\n");
+  }
+
   function updatePreview() {
-    const obj = buildCocofoliaCharacter();
-    $("out").textContent = JSON.stringify(obj, null, 2);
+    const f = readForm();
+    $("out").textContent = buildMemoText(f);
+    $("statusMsg").textContent = "";
   }
 
-  function downloadJSON() {
-    const obj = buildCocofoliaCharacter();
-    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const safeName = (obj.data.name || "character").replace(/[\\/:*?"<>|]/g, "_");
-    a.download = `kedamonoopera_${safeName}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // フォールバック
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      return true;
+    }
   }
 
-  function copyText() {
-    const obj = buildCocofoliaCharacter();
-    const text = obj.data.memo;
-    navigator.clipboard.writeText(text).then(() => {
-      alert("コピペ用テキストをコピーしました。");
-    }).catch(() => {
-      alert("コピーに失敗しました（ブラウザ権限を確認してね）。");
+  function setStatus(msg, ok=true) {
+    const el = $("statusMsg");
+    el.textContent = msg;
+    el.className = ok ? "small ok" : "small warn";
+  }
+
+  async function onCopy() {
+    const f = readForm();
+    const text = buildMemoText(f);
+    await copyToClipboard(text);
+    setStatus("コピーしました ✅（ココフォリアのキャラメモ欄に貼ってね）", true);
+
+    // ボタン文言も一瞬変える（体感が良い）
+    const btn = $("btnCopy");
+    const old = btn.textContent;
+    btn.textContent = "✅ コピー済み";
+    setTimeout(() => btn.textContent = old, 1200);
+  }
+
+  function clearAll() {
+    ["name","species","gonou","legendFree","desireFree","lairFree","mureType","mureFree","notes"].forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      if (el.tagName === "SELECT") el.value = "";
+      else el.value = "";
+    });
+    updatePreview();
+    setStatus("入力をクリアしました", true);
+  }
+
+  // 「表から追記」：ピルを押すと対象textareaに追記
+  function makePills(containerId, items, targetTextareaId, allowMulti) {
+    const box = $(containerId);
+    const target = $(targetTextareaId);
+
+    items.forEach((txt) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "pill";
+      b.textContent = txt.split("】")[0] + "】"; // 見た目は短く
+      b.title = txt; // ホバーで全文
+      b.setAttribute("aria-pressed", "false");
+
+      b.addEventListener("click", () => {
+        const pressed = b.getAttribute("aria-pressed") === "true";
+
+        // 伝説は「1つ」運用が多い想定 → 既存を置換に寄せる
+        if (!allowMulti) {
+          // 全pillの押下状態を解除
+          [...box.querySelectorAll(".pill")].forEach(p => p.setAttribute("aria-pressed","false"));
+          b.setAttribute("aria-pressed", "true");
+          target.value = txt;
+        } else {
+          // 欲望は複数 → 追記
+          b.setAttribute("aria-pressed", pressed ? "false" : "true");
+          if (!pressed) {
+            const cur = target.value.trim();
+            target.value = cur ? (cur + "\n" + txt) : txt;
+          } else {
+            // 解除時に自動削除まではしない（誤削除防止）
+          }
+        }
+        updatePreview();
+      });
+
+      box.appendChild(b);
     });
   }
 
+  // 初期化
+  makePills("legendPills", LEGENDS, "legendFree", false);
+  makePills("desirePills", DESIRES, "desireFree", true);
+  makePills("lairPills", LAIRS, "lairFree", false);
+
+  // イベント
+  $("btnCopy").addEventListener("click", onCopy);
   $("btnPreview").addEventListener("click", updatePreview);
-  $("btnDownload").addEventListener("click", downloadJSON);
-  $("btnCopy").addEventListener("click", copyText);
+  $("btnClear").addEventListener("click", clearAll);
+
+  // 入力のたびに軽くプレビュー更新（重くないのでOK）
+  ["name","species","gonou","legendFree","desireFree","lairFree","mureType","mureFree","notes"].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener("input", updatePreview);
+    el.addEventListener("change", updatePreview);
+  });
 
   updatePreview();
 </script>
