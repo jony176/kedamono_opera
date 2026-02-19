@@ -1,1 +1,140 @@
-{"characters": [{"name": "Example Character","statuses": [{"name": "Idle","type": "Animation","duration": 5},{"name": "Running","type": "Animation","duration": 7}],"params": ["height: 180cm","weight: 75kg","color: blue"]}]}.
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ケダモノオペラ：キャラシ作成（ココフォリア出力）</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; line-height: 1.5; }
+    .grid { display: grid; gap: 12px; max-width: 900px; }
+    label { font-weight: 600; }
+    input, textarea, button { font: inherit; padding: 10px; width: 100%; box-sizing: border-box; }
+    textarea { min-height: 140px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    pre { background:#f6f6f6; padding:12px; overflow:auto; }
+    .btns { display:flex; gap:12px; flex-wrap:wrap; }
+    button { width:auto; cursor:pointer; }
+    .hint { color:#555; font-size: 0.95em; }
+  </style>
+</head>
+<body>
+  <h1>ケダモノオペラ：キャラシ作成</h1>
+  <p class="hint">固定：種族・技・性質（仮）／背景：フリーテキスト1枠／ダイス：1d10（高いほど良い）</p>
+
+  <div class="grid">
+    <div class="row">
+      <div>
+        <label>キャラ名</label>
+        <input id="name" placeholder="例：長尾直樹" />
+      </div>
+      <div>
+        <label>ダイス</label>
+        <input id="dice" value="1d10" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>種族</label>
+        <input id="race" placeholder="例：人間 / 獣人 / etc" />
+      </div>
+      <div>
+        <label>技</label>
+        <input id="skill" placeholder="例：影縫い" />
+      </div>
+    </div>
+
+    <div>
+      <label>性質（仮）</label>
+      <input id="nature" placeholder="例：冷静 / 獰猛 / etc" />
+    </div>
+
+    <div>
+      <label>背景設定（フリーテキスト）</label>
+      <textarea id="bg" placeholder="ここに背景、関係性、持ち物、口調、NGなど自由に…"></textarea>
+    </div>
+
+    <div class="btns">
+      <button id="btnPreview">プレビュー更新</button>
+      <button id="btnDownload">ココフォリアJSONをDL</button>
+      <button id="btnCopy">コピペ用テキストをコピー</button>
+    </div>
+
+    <h2>プレビュー（JSON）</h2>
+    <pre id="out"></pre>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function buildCocofoliaCharacter() {
+    const name = $("name").value.trim() || "名無し";
+    const dice = $("dice").value.trim() || "1d10";
+    const race = $("race").value.trim();
+    const skill = $("skill").value.trim();
+    const nature = $("nature").value.trim();
+    const bg = $("bg").value.trim();
+
+    // メモに全情報を集約
+    const memoLines = [
+      `【システム】ケダモノオペラ`,
+      `【ダイス】${dice}（高いほど良い）`,
+      race ? `【種族】${race}` : null,
+      skill ? `【技】${skill}` : null,
+      nature ? `【性質】${nature}` : null,
+      ``,
+      bg ? `【背景】\n${bg}` : `【背景】（未入力）`,
+    ].filter(Boolean);
+
+    // ココフォリア互換JSON形式
+    return {
+      kind: "character",
+      data: {
+        name,
+        memo: memoLines.join("\n"),
+        statuses: [],
+        params: [
+          race ? { label: "種族", value: race } : null,
+          skill ? { label: "技", value: skill } : null,
+          nature ? { label: "性質", value: nature } : null,
+          { label: "ダイス", value: dice }
+        ].filter(Boolean),
+      }
+    };
+  }
+
+  function updatePreview() {
+    const obj = buildCocofoliaCharacter();
+    $("out").textContent = JSON.stringify(obj, null, 2);
+  }
+
+  function downloadJSON() {
+    const obj = buildCocofoliaCharacter();
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const safeName = (obj.data.name || "character").replace(/[\\/:*?"<>|]/g, "_");
+    a.download = `kedamonoopera_${safeName}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function copyText() {
+    const obj = buildCocofoliaCharacter();
+    const text = obj.data.memo;
+    navigator.clipboard.writeText(text).then(() => {
+      alert("コピペ用テキストをコピーしました。");
+    }).catch(() => {
+      alert("コピーに失敗しました（ブラウザ権限��確認してね）。");
+    });
+  }
+
+  $("btnPreview").addEventListener("click", updatePreview);
+  $("btnDownload").addEventListener("click", downloadJSON);
+  $("btnCopy").addEventListener("click", copyText);
+
+  updatePreview();
+</script>
+</body>
+</html>
