@@ -160,6 +160,7 @@
         <button class="btnPrimary" id="btnCopy">📋 メモ用テキストをコピー</button>
         <button class="btnGhost" id="btnPreview">プレビュー更新</button>
         <button class="btnGhost" id="btnClear">入力をクリア</button>
+<button class="btnGhost" id="btnRandom">🎲 ランダム生成</button>
         <span id="statusMsg" class="small"></span>
       </div>
 
@@ -381,7 +382,62 @@
     el.addEventListener("input", updatePreview);
     el.addEventListener("change", updatePreview);
   });
+// ===== ランダム生成ユーティリティ =====
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
+function randomSelect(selectEl, value) {
+  if (!value) return;
+  const opts = [...selectEl.options];
+  const hit = opts.find(o => o.value === value || o.text === value);
+  if (hit) selectEl.value = hit.value;
+}
+
+function onRandom() {
+  // ケダモノ種
+  if (!$("species").value) {
+    const speciesOpts = [...$("species").options].map(o => o.value).filter(Boolean);
+    $("species").value = pickRandom(speciesOpts);
+  }
+
+  // 権能
+  if (!$("gonou").value) {
+    const gonouOpts = [...$("gonou").options].map(o => o.value).filter(Boolean);
+    $("gonou").value = pickRandom(gonouOpts);
+  }
+
+  // 群れタイプ（空なら）
+  if (!$("mureType").value) {
+    const mureOpts = [...$("mureType").options].map(o => o.value).filter(Boolean);
+    if (mureOpts.length) $("mureType").value = pickRandom(mureOpts);
+  }
+
+  // 伝説（空なら上書き）
+  if (!$("legendFree").value.trim()) {
+    $("legendFree").value = pickRandom(LEGENDS);
+  }
+
+  // 欲望（空なら1つ、入ってたら追記1つ）
+  const newDesire = pickRandom(DESIRES);
+  if (!$("desireFree").value.trim()) {
+    $("desireFree").value = newDesire;
+  } else {
+    $("desireFree").value += "\n" + newDesire;
+  }
+
+  // 住処（空なら）
+  if (!$("lairFree").value.trim()) {
+    $("lairFree").value = pickRandom(LAIRS);
+  }
+
+  setStatus("ランダム生成しました 🎲", true);
+  updatePreview();
+}
+
+// ボタン紐付け
+document.getElementById("btnRandom")?.addEventListener("click", onRandom);
+  
   updatePreview();
 </script>
 </body>
