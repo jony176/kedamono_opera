@@ -111,7 +111,7 @@
           <details>
             <summary>伝説表を見る（クリックで展開）</summary>
             <div class="small">
-              <p>クリックで本文にコピーしたい人向け：下のボタンで「伝説」欄に追記できます。</p>
+              <p>下のボタンで「伝説」欄に入れられます（伝説は基本1つ想定なので置換）。</p>
               <div class="pillRow" id="legendPills"></div>
             </div>
           </details>
@@ -124,7 +124,7 @@
           <details>
             <summary>欲望表を見る（クリックで展開）</summary>
             <div class="small">
-              <p>複数選ぶ前提。下のボタンで「欲望」欄に追記できます。</p>
+              <p>下のボタンで「欲望」欄に追記できます（複数選択想定）。</p>
               <div class="pillRow" id="desirePills"></div>
             </div>
           </details>
@@ -141,7 +141,7 @@
           <details>
             <summary>住処表を見る（クリックで展開）</summary>
             <div class="small">
-              <p>下のボタンで「住処」欄に追記できます。</p>
+              <p>下のボタンで「住処」欄に入れられます（住処は基本1つ想定なので置換）。</p>
               <div class="pillRow" id="lairPills"></div>
             </div>
           </details>
@@ -158,9 +158,9 @@
     <div class="card grid">
       <div class="btns">
         <button class="btnPrimary" id="btnCopy">📋 メモ用テキストをコピー</button>
+        <button class="btnGhost" id="btnRandom">🎲 ランダム生成</button>
         <button class="btnGhost" id="btnPreview">プレビュー更新</button>
         <button class="btnGhost" id="btnClear">入力をクリア</button>
-<button class="btnGhost" id="btnRandom">🎲 ランダム生成</button>
         <span id="statusMsg" class="small"></span>
       </div>
 
@@ -241,7 +241,7 @@
     lines.push(`【ケダモノ種】${f.species || "（未選択）"}`);
     lines.push(`【権能】${f.gonou || "（未選択）"}`);
 
-    lines.push(""); // blank
+    lines.push("");
 
     lines.push("【伝説】");
     lines.push(f.legendFree ? f.legendFree : "（未入力）");
@@ -268,7 +268,7 @@
       lines.push("");
     }
 
-    // 末尾にダイスルール（プレイヤーの迷い防止）
+    // 末尾にダイスルール（迷い防止）
     lines.push("【判定】1d10（高いほど良い）");
 
     return lines.join("\n");
@@ -308,7 +308,6 @@
     await copyToClipboard(text);
     setStatus("コピーしました ✅（ココフォリアのキャラメモ欄に貼ってね）", true);
 
-    // ボタン文言も一瞬変える（体感が良い）
     const btn = $("btnCopy");
     const old = btn.textContent;
     btn.textContent = "✅ コピー済み";
@@ -326,7 +325,7 @@
     setStatus("入力をクリアしました", true);
   }
 
-  // 「表から追記」：ピルを押すと対象textareaに追記
+  // ===== ピル生成（表から追記/置換） =====
   function makePills(containerId, items, targetTextareaId, allowMulti) {
     const box = $(containerId);
     const target = $(targetTextareaId);
@@ -342,22 +341,21 @@
       b.addEventListener("click", () => {
         const pressed = b.getAttribute("aria-pressed") === "true";
 
-        // 伝説は「1つ」運用が多い想定 → 既存を置換に寄せる
         if (!allowMulti) {
-          // 全pillの押下状態を解除
+          // 置換モード（伝説/住処）
           [...box.querySelectorAll(".pill")].forEach(p => p.setAttribute("aria-pressed","false"));
           b.setAttribute("aria-pressed", "true");
           target.value = txt;
         } else {
-          // 欲望は複数 → 追記
+          // 追記モード（欲望）
           b.setAttribute("aria-pressed", pressed ? "false" : "true");
           if (!pressed) {
             const cur = target.value.trim();
             target.value = cur ? (cur + "\n" + txt) : txt;
-          } else {
-            // 解除時に自動削除まではしない（誤削除防止）
           }
+          // 解除時に自動削除はしない（誤削除防止）
         }
+
         updatePreview();
       });
 
@@ -365,79 +363,71 @@
     });
   }
 
-  // 初期化
+  // ===== ランダム生成 =====
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function onRandom() {
+    // ケダモノ種（空なら）
+    if (!$("species").value) {
+      const speciesOpts = [...$("species").options].map(o => o.value).filter(Boolean);
+      $("species").value = pickRandom(speciesOpts);
+    }
+
+    // 権能（空なら）
+    if (!$("gonou").value) {
+      const gonouOpts = [...$("gonou").options].map(o => o.value).filter(Boolean);
+      $("gonou").value = pickRandom(gonouOpts);
+    }
+
+    // 群れタイプ（空なら）
+    if (!$("mureType").value) {
+      const mureOpts = [...$("mureType").options].map(o => o.value).filter(Boolean);
+      if (mureOpts.length) $("mureType").value = pickRandom(mureOpts);
+    }
+
+    // 伝説（空なら置換）
+    if (!$("legendFree").value.trim()) {
+      $("legendFree").value = pickRandom(LEGENDS);
+    }
+
+    // 欲望（空なら1つ、入ってたら追記1つ）
+    const newDesire = pickRandom(DESIRES);
+    if (!$("desireFree").value.trim()) {
+      $("desireFree").value = newDesire;
+    } else {
+      $("desireFree").value += "\n" + newDesire;
+    }
+
+    // 住処（空なら置換）
+    if (!$("lairFree").value.trim()) {
+      $("lairFree").value = pickRandom(LAIRS);
+    }
+
+    setStatus("ランダム生成しました 🎲", true);
+    updatePreview();
+  }
+
+  // ===== 初期化 =====
   makePills("legendPills", LEGENDS, "legendFree", false);
   makePills("desirePills", DESIRES, "desireFree", true);
   makePills("lairPills", LAIRS, "lairFree", false);
 
-  // イベント
+  // ボタン
   $("btnCopy").addEventListener("click", onCopy);
+  $("btnRandom").addEventListener("click", onRandom);
   $("btnPreview").addEventListener("click", updatePreview);
   $("btnClear").addEventListener("click", clearAll);
 
-  // 入力のたびに軽くプレビュー更新（重くないのでOK）
+  // 入力のたびにプレビュー更新
   ["name","species","gonou","legendFree","desireFree","lairFree","mureType","mureFree","notes"].forEach(id => {
     const el = $(id);
     if (!el) return;
     el.addEventListener("input", updatePreview);
     el.addEventListener("change", updatePreview);
   });
-// ===== ランダム生成ユーティリティ =====
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
 
-function randomSelect(selectEl, value) {
-  if (!value) return;
-  const opts = [...selectEl.options];
-  const hit = opts.find(o => o.value === value || o.text === value);
-  if (hit) selectEl.value = hit.value;
-}
-
-function onRandom() {
-  // ケダモノ種
-  if (!$("species").value) {
-    const speciesOpts = [...$("species").options].map(o => o.value).filter(Boolean);
-    $("species").value = pickRandom(speciesOpts);
-  }
-
-  // 権能
-  if (!$("gonou").value) {
-    const gonouOpts = [...$("gonou").options].map(o => o.value).filter(Boolean);
-    $("gonou").value = pickRandom(gonouOpts);
-  }
-
-  // 群れタイプ（空なら）
-  if (!$("mureType").value) {
-    const mureOpts = [...$("mureType").options].map(o => o.value).filter(Boolean);
-    if (mureOpts.length) $("mureType").value = pickRandom(mureOpts);
-  }
-
-  // 伝説（空なら上書き）
-  if (!$("legendFree").value.trim()) {
-    $("legendFree").value = pickRandom(LEGENDS);
-  }
-
-  // 欲望（空なら1つ、入ってたら追記1つ）
-  const newDesire = pickRandom(DESIRES);
-  if (!$("desireFree").value.trim()) {
-    $("desireFree").value = newDesire;
-  } else {
-    $("desireFree").value += "\n" + newDesire;
-  }
-
-  // 住処（空なら）
-  if (!$("lairFree").value.trim()) {
-    $("lairFree").value = pickRandom(LAIRS);
-  }
-
-  setStatus("ランダム生成しました 🎲", true);
-  updatePreview();
-}
-
-// ボタン紐付け
-document.getElementById("btnRandom")?.addEventListener("click", onRandom);
-  
   updatePreview();
 </script>
 </body>
