@@ -1,86 +1,117 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ケダモノオペラ：キャラシ作成（ココフォリア出力）</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; line-height: 1.5; }
+    .grid { display: grid; gap: 12px; max-width: 900px; }
+    label { font-weight: 600; }
+    input, textarea, button { font: inherit; padding: 10px; width: 100%; box-sizing: border-box; }
+    textarea { min-height: 140px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    pre { background:#f6f6f6; padding:12px; overflow:auto; }
+    .btns { display:flex; gap:12px; flex-wrap:wrap; }
+    button { width:auto; cursor:pointer; }
+    .hint { color:#555; font-size: 0.95em; }
+  </style>
+</head>
+<body>
+  <h1>ケダモノオペラ：キャラシ作成</h1>
+  <p class="hint">固定：種族・技・性質（仮）／背景：フリーテキスト1枠／ダイス：1d10（高いほど良い）</p>
+
+  <div class="grid">
+    <div class="row">
+      <div>
+        <label>キャラ名</label>
+        <input id="name" placeholder="例：長尾直樹" />
+      </div>
+      <div>
+        <label>ダイス</label>
+        <input id="dice" value="1d10" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>種族</label>
+        <input id="race" placeholder="例：人間 / 獣人 / etc" />
+      </div>
+      <div>
+        <label>技</label>
+        <input id="skill" placeholder="例：影縫い" />
+      </div>
+    </div>
+
+    <div>
+      <label>性質（仮）</label>
+      <input id="nature" placeholder="例：冷静 / 獰猛 / etc" />
+    </div>
+
+    <div>
+      <label>背景設定（フリーテキスト）</label>
+      <textarea id="bg" placeholder="ここに背景、関係性、持ち物、口調、NGなど自由に…"></textarea>
+    </div>
+
+    <div class="btns">
+      <button id="btnPreview">プレビュー更新</button>
+      <button id="btnDownload">ココフォリアJSONをDL</button>
+      <button id="btnCopy">コピペ用テキストをコピー</button>
+    </div>
+
+    <h2>プレビュー（JSON）</h2>
+    <pre id="out"></pre>
+  </div>
+
 <script>
   const $ = (id) => document.getElementById(id);
 
-  function readForm() {
-    return {
-      name: $("name").value.trim() || "名無し",
-      dice: $("dice").value.trim() || "1d10",
-      race: $("race").value.trim(),
-      skill: $("skill").value.trim(),
-      nature: $("nature").value.trim(),
-      bg: $("bg").value.trim(),
-    };
-  }
+  function buildCocofoliaCharacter() {
+    const name = $("name").value.trim() || "名無し";
+    const dice = $("dice").value.trim() || "1d10";
+    const race = $("race").value.trim();
+    const skill = $("skill").value.trim();
+    const nature = $("nature").value.trim();
+    const bg = $("bg").value.trim();
 
-  // ココフォリアの「キャラ編集＞メモ欄」に貼る用（実運用の本命）
-  function buildMemoText(f) {
-    const lines = [
+    // "最低限困らない"方針：メモに全部集約 + paramsで見やすく
+    const memoLines = [
       `【システム】ケダモノオペラ`,
-      `【ダイス】${f.dice}（高いほど良い）`,
-      f.race ? `【種族】${f.race}` : null,
-      f.skill ? `【技】${f.skill}` : null,
-      f.nature ? `【性質】${f.nature}` : null,
+      `【ダイス】${dice}（高いほど良い）`,
+      race ? `【種族】${race}` : null,
+      skill ? `【技】${skill}` : null,
+      nature ? `【性質】${nature}` : null,
       ``,
-      f.bg ? `【背景】\n${f.bg}` : `【背景】（未入力）`,
+      bg ? `【背景】\n${bg}` : `【背景】（未入力）`,
     ].filter(Boolean);
 
-    return lines.join("\n");
-  }
-
-  // 手入力支援：短い1行にする（チャット貼り付けや共有にも便利）
-  function buildOneLine(f) {
-    const parts = [
-      `名前:${f.name}`,
-      f.race ? `種族:${f.race}` : null,
-      f.skill ? `技:${f.skill}` : null,
-      f.nature ? `性質:${f.nature}` : null,
-      `ダイス:${f.dice}`,
-    ].filter(Boolean);
-    return parts.join(" / ");
-  }
-
-  // 将来インポート仕様が復活した時に備えてJSONも一応“それっぽく”保つ
-  function buildCocofoliaCharacterJSON(f) {
+    // Cocofolia importでよく扱われる「character」形に寄せる
+    // ※部屋の取り込み仕様差分が出ても、name/memo/params があれば実用になることが多い
     return {
       kind: "character",
       data: {
-        name: f.name,
-        memo: buildMemoText(f),
-        // ✅ status（単数）が一般的。あなたの statuses は互換性を落とすので修正
+        name,
+        memo: memoLines.join("\n"),
+        // statusは必要になったら追加でOK（例：HPなど）
         status: [],
         params: [
-          f.race ? { label: "種族", value: f.race } : null,
-          f.skill ? { label: "技", value: f.skill } : null,
-          f.nature ? { label: "性質", value: f.nature } : null,
-          { label: "ダイス", value: f.dice },
+          race ? { label: "種族", value: race } : null,
+          skill ? { label: "技", value: skill } : null,
+          nature ? { label: "性質", value: nature } : null,
+          { label: "ダイス", value: dice }
         ].filter(Boolean),
-      },
+      }
     };
   }
 
   function updatePreview() {
-    const f = readForm();
-    const obj = buildCocofoliaCharacterJSON(f);
+    const obj = buildCocofoliaCharacter();
     $("out").textContent = JSON.stringify(obj, null, 2);
-
-    // 手順ガイドも更新（プレイヤーが迷わない）
-    const guide = [
-      `【ココフォリア貼り付け手順】`,
-      `1) 部屋でキャラクター（駒）を新規作成（空でOK）`,
-      `2) キャラ編集を開く`,
-      `3) 「メモ」欄に『メモ全文』を貼る`,
-      `4) 必要なら種族/技/性質は params（項目）に手入力`,
-      ``,
-      `（コピペ用1行）`,
-      buildOneLine(f),
-    ].join("\n");
-    const guideEl = document.getElementById("guide");
-    if (guideEl) guideEl.textContent = guide;
   }
 
   function downloadJSON() {
-    const f = readForm();
-    const obj = buildCocofoliaCharacterJSON(f);
+    const obj = buildCocofoliaCharacter();
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -91,69 +122,21 @@
     URL.revokeObjectURL(url);
   }
 
-  async function copyToClipboard(text, okMsg) {
-    try {
-      await navigator.clipboard.writeText(text);
-      alert(okMsg);
-    } catch {
-      // クリップボードAPIが弾かれる環境向けフォールバック
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      alert(okMsg + "（フォールバック）");
-    }
+  function copyText() {
+    const obj = buildCocofoliaCharacter();
+    const text = obj.data.memo;
+    navigator.clipboard.writeText(text).then(() => {
+      alert("コピペ用テキストをコピーしました。");
+    }).catch(() => {
+      alert("コピーに失敗しました（ブラウザ権限を確認してね）。");
+    });
   }
 
-  function copyMemo() {
-    const f = readForm();
-    copyToClipboard(buildMemoText(f), "メモ全文をコピーしました。ココフォリアの「メモ欄」に貼ってね。");
-  }
-
-  function copyOneLine() {
-    const f = readForm();
-    copyToClipboard(buildOneLine(f), "1行サマリをコピーしました。共有や手入力補助にどうぞ。");
-  }
-
-  // 既存ボタンに紐付け（IDはあなたのHTMLをそのまま使う）
   $("btnPreview").addEventListener("click", updatePreview);
   $("btnDownload").addEventListener("click", downloadJSON);
-
-  // 既存の btnCopy を「メモ全文コピー」にする
-  $("btnCopy").addEventListener("click", copyMemo);
-
-  // 追加ボタンを動的に差し込む（HTMLをいじらず増やせる）
-  (function injectExtraButton(){
-    const btns = document.querySelector(".btns");
-    if (!btns) return;
-
-    const b = document.createElement("button");
-    b.type = "button";
-    b.id = "btnCopyOneLine";
-    b.textContent = "1行サマリをコピー";
-    b.addEventListener("click", copyOneLine);
-    btns.appendChild(b);
-  })();
-
-  // 手順ガイド欄を動的に追加（HTMLをいじらず増やせる）
-  (function injectGuide(){
-    const out = document.getElementById("out");
-    if (!out) return;
-
-    const h2 = document.createElement("h2");
-    h2.textContent = "ココフォリア貼り付け手順（コピペ用）";
-
-    const pre = document.createElement("pre");
-    pre.id = "guide";
-    pre.style.background = "#f6f6f6";
-    pre.style.padding = "12px";
-    pre.style.overflow = "auto";
-
-    out.parentNode.insertBefore(h2, out.nextSibling);
-    out.parentNode.insertBefore(pre, h2.nextSibling);
-  })();
+  $("btnCopy").addEventListener("click", copyText);
 
   updatePreview();
 </script>
+</body>
+</html>
