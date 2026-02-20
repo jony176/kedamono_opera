@@ -31,6 +31,11 @@
     .pill { border:1px solid #ddd; border-radius: 999px; padding: 6px 10px; cursor:pointer; background:#fff; }
     .pill[aria-pressed="true"] { border-color:#333; font-weight:650; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    /* 追加：保存UI */
+    .saveBar { display:flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+    .saveBar > * { flex: 1 1 220px; }
+    .saveBar button { flex: 0 0 auto; }
   </style>
 </head>
 <body>
@@ -38,6 +43,32 @@
     <div>
       <h1>ケダモノオペラ：キャラメモ生成</h1>
       <p class="hint">入力 → ワンクリックで <span class="mono">ココフォリアのキャラメモ欄</span> に貼れるテキストをコピーします。</p>
+    </div>
+
+    <!-- 追加：保存/読込（10キャラまで） -->
+    <div class="card grid">
+      <div class="saveBar">
+        <div class="grid" style="gap:6px;">
+          <label>保存スロット（最大10）</label>
+          <select id="slotSelect"></select>
+          <p class="small" style="margin:0;">
+            ここで選択すると、そのスロットを読み込みます（自動保存は選択中スロットに行われます）。
+          </p>
+        </div>
+
+        <div class="grid" style="gap:6px;">
+          <label>スロット操作</label>
+          <div class="btns">
+            <button class="btnGhost" id="btnNewSlot">➕ 新規（空で作成）</button>
+            <button class="btnGhost" id="btnDuplicateSlot">🧬 複製</button>
+            <button class="btnGhost" id="btnDeleteSlot">🗑 削除</button>
+          </div>
+          <p class="small" style="margin:0;">
+            ※入力は自動保存されます（約0.8秒後）。スロットを切り替える前にも保存されます。
+          </p>
+        </div>
+      </div>
+      <span id="saveMsg" class="small"></span>
     </div>
 
     <div class="card grid">
@@ -181,6 +212,236 @@
 <script>
   const $ = (id) => document.getElementById(id);
 
+  // ===== 追加：保存機能（最大10スロット） =====
+  const STORAGE_KEY = "kedamono_opera_char_slots_v1";
+  const MAX_SLOTS = 10;
+  const AUTOSAVE_MS = 800;
+
+  let slots = [];        // [{id, name, data, updatedAt}]
+  let currentSlotId = ""; // 選択中
+  let autosaveTimer = null;
+
+  function uid() {
+    return (crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  }
+
+  function safeParse(json, fallback) {
+    try { return JSON.parse(json); } catch { return fallback; }
+  }
+
+  function loadSlots() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const st = raw ? safeParse(raw, null) : null;
+
+    if (st && Array.isArray(st.slots)) {
+      slots = st.slots.slice(0, MAX_SLOTS);
+      currentSlotId = st.currentSlotId || (slots[0]?.id ?? "");
+    } else {
+      // 初回：空スロット1つ作る
+      slots = [];
+      const first = createEmptySlot("新規キャラ");
+      slots.push(first);
+      currentSlotId = first.id;
+      persistSlots();
+    }
+
+    // 既存でcurrentが無効なら補正
+    if (currentSlotId && !slots.some(s => s.id === currentSlotId)) {
+      currentSlotId = slots[0]?.id ?? "";
+      persistSlots();
+    }
+  }
+
+  function persistSlots() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ slots, currentSlotId }));
+      setSaveMsg("保存しました ✅", true);
+      return true;
+    } catch (e) {
+      // QuotaExceededError等
+      setSaveMsg("保存に失敗しました（容量上限の可能性）⚠️ 不要キャラを削除してください", false);
+      return false;
+    }
+  }
+
+  function setSaveMsg(msg, ok=true) {
+    const el = $("saveMsg");
+    el.textContent = msg;
+    el.className = ok ? "small ok" : "small warn";
+  }
+
+  function getCurrentSlot() {
+    return slots.find(s => s.id === currentSlotId) ?? null;
+  }
+
+  function createEmptySlot(name) {
+    return {
+      id: uid(),
+      name: name || "新規キャラ",
+      data: defaultFormData(),
+      updatedAt: Date.now(),
+    };
+  }
+
+  function defaultFormData() {
+    return {
+      name: "",
+      species: "",
+      gonou: "",
+      legendFree: "",
+      desireFree: "",
+      lairFree: "",
+      mureType: "",
+      mureFree: "",
+      notes: ""
+    };
+  }
+
+  function refreshSlotSelect() {
+    const sel = $("slotSelect");
+    sel.innerHTML = "";
+
+    // 並び：updatedAt降順に見せたいが、作業中の混乱防止で「保存順（slots順）」のままにする
+    slots.forEach((s, idx) => {
+      const opt = document.createElement("option");
+      const displayName = (s.name?.trim() ? s.name.trim() : "（無名）");
+      opt.value = s.id;
+      opt.textContent = `${idx + 1}. ${displayName}`;
+      sel.appendChild(opt);
+    });
+
+    sel.value = currentSlotId;
+    updateSlotButtonsState();
+  }
+
+  function updateSlotButtonsState() {
+    $("btnNewSlot").disabled = slots.length >= MAX_SLOTS;
+    $("btnDuplicateSlot").disabled = slots.length >= MAX_SLOTS || !getCurrentSlot();
+    $("btnDeleteSlot").disabled = slots.length <= 1; // 最低1つは残す
+  }
+
+  function flushAutosaveNow() {
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+    }
+    const ok = saveCurrentToSlot();
+    return ok;
+  }
+
+  function scheduleAutosave() {
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      autosaveTimer = null;
+      saveCurrentToSlot();
+    }, AUTOSAVE_MS);
+  }
+
+  function saveCurrentToSlot() {
+    const slot = getCurrentSlot();
+    if (!slot) return false;
+
+    const f = readForm();
+    slot.data = f;
+    // スロット名はフォームの名前を優先（未入力なら元のまま）
+    const nm = (f.name || "").trim();
+    if (nm) slot.name = nm;
+    slot.updatedAt = Date.now();
+    return persistSlots();
+  }
+
+  function loadSlotToForm(slotId) {
+    const s = slots.find(x => x.id === slotId);
+    if (!s) return;
+    currentSlotId = s.id;
+    setForm(s.data || defaultFormData());
+    updatePreview();
+    persistSlots(); // currentSlotId保存
+    refreshSlotSelect();
+    setSaveMsg("読み込みました ✅", true);
+  }
+
+  function onSelectSlotChange() {
+    // 切替前に今の入力を確実に保存
+    flushAutosaveNow();
+    loadSlotToForm($("slotSelect").value);
+  }
+
+  function onNewSlot() {
+    flushAutosaveNow();
+    if (slots.length >= MAX_SLOTS) {
+      setSaveMsg("これ以上作れません（最大10）", false);
+      return;
+    }
+    const s = createEmptySlot("新規キャラ");
+    slots.push(s);
+    currentSlotId = s.id;
+    setForm(s.data);
+    updatePreview();
+    persistSlots();
+    refreshSlotSelect();
+    setSaveMsg("新規スロットを作成しました ✅", true);
+  }
+
+  function onDuplicateSlot() {
+    flushAutosaveNow();
+    if (slots.length >= MAX_SLOTS) {
+      setSaveMsg("これ以上作れません（最大10）", false);
+      return;
+    }
+    const cur = getCurrentSlot();
+    if (!cur) return;
+
+    const copy = {
+      id: uid(),
+      name: (cur.name?.trim() ? cur.name.trim() : "（無名）") + "（コピー）",
+      data: { ...(cur.data || defaultFormData()) },
+      updatedAt: Date.now(),
+    };
+    slots.push(copy);
+    currentSlotId = copy.id;
+    setForm(copy.data);
+    updatePreview();
+    persistSlots();
+    refreshSlotSelect();
+    setSaveMsg("複製しました ✅", true);
+  }
+
+  function onDeleteSlot() {
+    flushAutosaveNow();
+    if (slots.length <= 1) {
+      setSaveMsg("最後の1件は削除できません", false);
+      return;
+    }
+    const idx = slots.findIndex(s => s.id === currentSlotId);
+    if (idx < 0) return;
+
+    slots.splice(idx, 1);
+    // 次の選択：同じindexに残ってるもの、なければ末尾
+    const next = slots[idx] || slots[slots.length - 1];
+    currentSlotId = next.id;
+    setForm(next.data || defaultFormData());
+    updatePreview();
+    persistSlots();
+    refreshSlotSelect();
+    setSaveMsg("削除しました ✅", true);
+  }
+
+  // フォームから読み/フォームへ反映
+  function setForm(f) {
+    const d = { ...defaultFormData(), ...(f || {}) };
+    $("name").value = d.name ?? "";
+    $("species").value = d.species ?? "";
+    $("gonou").value = d.gonou ?? "";
+    $("legendFree").value = d.legendFree ?? "";
+    $("desireFree").value = d.desireFree ?? "";
+    $("lairFree").value = d.lairFree ?? "";
+    $("mureType").value = d.mureType ?? "";
+    $("mureFree").value = d.mureFree ?? "";
+    $("notes").value = d.notes ?? "";
+  }
+
+  // ===== 既存データ =====
   const LEGENDS = [
     "【永劫の別れ】あなたは大切なモノと離ればなれになりました。",
     "【千年の孤独】あなたは永いときをずっと一人ぼっちで過ごしてきました。",
@@ -278,6 +539,8 @@
     const f = readForm();
     $("out").textContent = buildMemoText(f);
     $("statusMsg").textContent = "";
+    // 追加：入力たびに自動保存予約
+    scheduleAutosave();
   }
 
   async function copyToClipboard(text) {
@@ -303,6 +566,9 @@
   }
 
   async function onCopy() {
+    // コピー前に確実に保存
+    flushAutosaveNow();
+
     const f = readForm();
     const text = buildMemoText(f);
     await copyToClipboard(text);
@@ -323,6 +589,7 @@
     });
     updatePreview();
     setStatus("入力をクリアしました", true);
+    // クリアも保存（自動保存が走る）
   }
 
   // ===== ピル生成（表から追記/置換） =====
@@ -356,7 +623,7 @@
           // 解除時に自動削除はしない（誤削除防止）
         }
 
-        updatePreview();
+        updatePreview(); // 自動保存も走る
       });
 
       box.appendChild(b);
@@ -406,7 +673,7 @@
     }
 
     setStatus("ランダム生成しました 🎲", true);
-    updatePreview();
+    updatePreview(); // 自動保存も走る
   }
 
   // ===== 初期化 =====
@@ -414,13 +681,28 @@
   makePills("desirePills", DESIRES, "desireFree", true);
   makePills("lairPills", LAIRS, "lairFree", false);
 
+  // 追加：保存初期化
+  loadSlots();
+  refreshSlotSelect();
+  // 初期スロットをフォームへ
+  const initSlot = getCurrentSlot();
+  if (initSlot) setForm(initSlot.data);
+  updatePreview(); // プレビュー＆自動保存予約（初回はほぼ無害）
+  setSaveMsg("準備完了 ✅（自動保存ON）", true);
+
   // ボタン
   $("btnCopy").addEventListener("click", onCopy);
   $("btnRandom").addEventListener("click", onRandom);
-  $("btnPreview").addEventListener("click", updatePreview);
+  $("btnPreview").addEventListener("click", () => { flushAutosaveNow(); updatePreview(); });
   $("btnClear").addEventListener("click", clearAll);
 
-  // 入力のたびにプレビュー更新
+  // 追加：スロット操作
+  $("slotSelect").addEventListener("change", onSelectSlotChange);
+  $("btnNewSlot").addEventListener("click", onNewSlot);
+  $("btnDuplicateSlot").addEventListener("click", onDuplicateSlot);
+  $("btnDeleteSlot").addEventListener("click", onDeleteSlot);
+
+  // 入力のたびにプレビュー更新（＝自動保存予約）
   ["name","species","gonou","legendFree","desireFree","lairFree","mureType","mureFree","notes"].forEach(id => {
     const el = $(id);
     if (!el) return;
@@ -428,7 +710,10 @@
     el.addEventListener("change", updatePreview);
   });
 
-  updatePreview();
+  // タブを閉じる/移動時に保存（保険）
+  window.addEventListener("beforeunload", () => {
+    flushAutosaveNow();
+  });
 </script>
 </body>
 </html>
